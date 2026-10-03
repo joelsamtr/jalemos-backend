@@ -1,0 +1,87 @@
+// Esquema de base de datos para jalemos.com
+// Documentación: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RolUsuario {
+  ADMIN
+  COMPRADOR
+}
+
+enum MetodoPago {
+  TARJETA
+  DEPOSITO
+}
+
+enum EstadoTransaccion {
+  PENDIENTE
+  APROBADO
+  RECHAZADO
+}
+
+model Usuario {
+  id            String        @id @default(uuid())
+  nombre        String
+  correo        String        @unique
+  password      String
+  rol           RolUsuario    @default(COMPRADOR)
+  creadoEn      DateTime      @default(now())
+  transacciones Transaccion[]
+}
+
+model Evento {
+  id            String        @id @default(uuid())
+  titulo        String
+  descripcion   String
+  fecha         DateTime
+  lugar         String
+  precio        Decimal       @db.Decimal(10, 2)
+  activo        Boolean       @default(true)
+  creadoEn      DateTime      @default(now())
+  fotos         FotoEvento[]
+  transacciones Transaccion[]
+}
+
+model FotoEvento {
+  id        String @id @default(uuid())
+  url       String
+  eventoId  String
+  evento    Evento @relation(fields: [eventoId], references: [id], onDelete: Cascade)
+}
+
+// Nombrada de forma genérica (no "CompraEvento") a propósito:
+// cuando se agregue el marketplace, esta misma tabla podrá
+// registrar ventas de productos sin rediseñar el modelo.
+model Transaccion {
+  id                String            @id @default(uuid())
+  evento            Evento            @relation(fields: [eventoId], references: [id])
+  eventoId          String
+  usuario           Usuario?          @relation(fields: [usuarioId], references: [id])
+  usuarioId         String?
+  correoComprador   String
+  cantidadTickets   Int
+  montoTotal        Decimal           @db.Decimal(10, 2)
+  metodoPago        MetodoPago
+  estado            EstadoTransaccion @default(PENDIENTE)
+  comprobanteUrl    String?
+  referenciaPagoApi String?
+  creadoEn          DateTime          @default(now())
+  actualizadoEn     DateTime          @updatedAt
+  tickets           Ticket[]
+}
+
+model Ticket {
+  id            String      @id @default(uuid())
+  codigo        String      @unique
+  transaccion   Transaccion @relation(fields: [transaccionId], references: [id])
+  transaccionId String
+  enviado       Boolean     @default(false)
+  creadoEn      DateTime    @default(now())
+}
